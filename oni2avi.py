@@ -26,6 +26,8 @@ def oni_converter(file_path):
             full path to oni file
 
     '''
+    count = 0
+    result = None
 
     PATH_TO_OPENNI2_SO_FILE = './OpenNI-Linux-x64-2.2/Redist'
 
@@ -65,6 +67,8 @@ def oni_converter(file_path):
         c_img_bgr.shape = (480, 640, 3)
         c_img_rgb = cv2.cvtColor(c_img_bgr, cv2.COLOR_BGR2RGB)
         c_images.append(c_img_rgb)
+        count += 1
+        # yield count
     openni2.unload()
 
     c_out = cv2.VideoWriter(
@@ -75,10 +79,12 @@ def oni_converter(file_path):
     for i in tqdm(range(len(c_images))):
         c_out.write(c_images[i])
         d_out.write(d_images[i])
+        count += 1
+        # yield count
     c_out.release()
     d_out.release()
 
     t1_stop = process_time()
     print(f"Process duration, seconds:, {round(t1_stop-t1_start, 3)}")
-
-oni_converter('cap2.oni')
+    return "ONI file has been processed successfully."
+    # return()

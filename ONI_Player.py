@@ -8,12 +8,26 @@ from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
                              QPushButton, QSizePolicy, QSlider, QStyle,
-                             QVBoxLayout, QGridLayout, QAction, QProgressBar,
+                             QVBoxLayout, QGridLayout, QAction, QDialog,
                              QMainWindow, QWidget, QSpacerItem)
 from PyQt5.QtGui import QIcon
 import ffms2
-
 from oni2avi import oni_converter
+
+# from progress_bar import ProgressBar as pb
+
+
+# class ProgressBar(QDialog, pb):
+#     def __init__(self, fn=None):
+#         QDialog.__init__(self)
+#         self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint)
+#         self.setupUi(self, fn)
+
+# def progress_bar(self, fn):
+#     progress_bar_inst = ProgressBar(fn)
+#     progress_bar_inst.show()
+#     progress_bar_inst.exec()
+
 
 class VideoWindow(QMainWindow):
 
@@ -37,8 +51,8 @@ class VideoWindow(QMainWindow):
         self.colorMediaPlayer = MediaPlayer(parent=self)
         self.depthMediaPlayer = MediaPlayer(parent=self)
 
-        colorVideoWidget = QVideoWidget()
-        depthVideoWidget = QVideoWidget()
+        self.colorVideoWidget = QVideoWidget()
+        self.depthVideoWidget = QVideoWidget()
 
         # spacers for control panel
         self.leftSpacerItem = QSpacerItem(10, 10,
@@ -111,15 +125,15 @@ class VideoWindow(QMainWindow):
         controlLayout.addWidget(self.forwardButton)
         controlLayout.addSpacerItem(self.rightSpacerItem)
 
-        videoLayout = QGridLayout()
-        videoLayout.setSpacing(10)
-        videoLayout.addWidget(self.colorLabel, 0, 0, Qt.AlignCenter)
-        videoLayout.addWidget(self.depthLabel, 0, 1, Qt.AlignCenter)
-        videoLayout.addWidget(colorVideoWidget, 1, 0)
-        videoLayout.addWidget(depthVideoWidget, 1, 1)
+        self.videoLayout = QGridLayout()
+        self.videoLayout.setSpacing(10)
+        self.videoLayout.addWidget(self.colorLabel, 0, 0, Qt.AlignCenter)
+        self.videoLayout.addWidget(self.depthLabel, 0, 1, Qt.AlignCenter)
+        self.videoLayout.addWidget(self.colorVideoWidget, 1, 0)
+        self.videoLayout.addWidget(self.depthVideoWidget, 1, 1)
 
         layout = QVBoxLayout()
-        layout.addLayout(videoLayout)
+        layout.addLayout(self.videoLayout)
         layout.addWidget(self.positionSlider)
         layout.addLayout(controlLayout)
         layout.addWidget(self.errorLabel)
@@ -127,13 +141,13 @@ class VideoWindow(QMainWindow):
         # Set widget to contain window contents
         wid.setLayout(layout)
 
-        self.colorMediaPlayer.setVideoOutput(colorVideoWidget)
+        self.colorMediaPlayer.setVideoOutput(self.colorVideoWidget)
         self.colorMediaPlayer.stateChanged.connect(self.mediaStateChanged)
         self.colorMediaPlayer.positionChanged.connect(self.positionChanged)
         self.colorMediaPlayer.durationChanged.connect(self.durationChanged)
         self.colorMediaPlayer.error.connect(self.handleError)
 
-        self.depthMediaPlayer.setVideoOutput(depthVideoWidget)
+        self.depthMediaPlayer.setVideoOutput(self.depthVideoWidget)
         self.depthMediaPlayer.stateChanged.connect(self.mediaStateChanged)
         self.depthMediaPlayer.positionChanged.connect(self.positionChanged)
         self.depthMediaPlayer.durationChanged.connect(self.durationChanged)
@@ -142,11 +156,14 @@ class VideoWindow(QMainWindow):
     def openFile(self):
         fileName, _ = QFileDialog.getOpenFileName(self, "Open oni file", '',
                                                   '*.oni', QDir.homePath())
+        self.errorLabel.setText("Processing of ONI file. Please wait.")
         path_to_color_avi = os.path.join(os.getcwd(), 'color.avi')
         path_to_depth_avi = os.path.join(os.getcwd(), 'depth.avi')
-        print(path_to_depth_avi)
         if fileName != '':
+            print(self.errorLabel.text())
             oni_converter(fileName)
+            if os.path.isfile('color.avi') and os.path.isfile('depth.avi'):
+                self.errorLabel.setText("ONI file has been processed successfully.")
             self.colorMediaPlayer.setMedia(
                 QMediaContent(QUrl.fromLocalFile(path_to_color_avi)))
             self.depthMediaPlayer.setMedia(
@@ -162,6 +179,7 @@ class VideoWindow(QMainWindow):
             self.colorMediaPlayer.pause()
             self.depthMediaPlayer.pause()
         else:
+            # self.errorLabel.setText('')
             self.colorMediaPlayer.play()
             self.depthMediaPlayer.play()
 
@@ -205,10 +223,8 @@ if __name__ == '__main__':
     player.show()
     if os.path.isfile('color.avi'):
         os.remove('color.avi')
-        print('color.avi file has been removed.')
     if os.path.isfile('depth.avi'):
         os.remove('depth.avi')
-        print('depth.avi file has been removed.')
     sys.exit(app.exec_())
 
 
