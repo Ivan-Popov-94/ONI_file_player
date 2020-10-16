@@ -9,7 +9,7 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
                              QPushButton, QSizePolicy, QSlider, QStyle,
                              QVBoxLayout, QGridLayout, QAction, QDialog,
-                             QMainWindow, QWidget, QSpacerItem)
+                             QMainWindow, QWidget, QSpacerItem, QFrame)
 from PyQt5.QtGui import QIcon
 import ffms2
 from oni2avi import oni_converter
@@ -34,6 +34,7 @@ class VideoWindow(QMainWindow):
     def __init__(self, parent=None):
         super(VideoWindow, self).__init__(parent)
         self.setWindowTitle("ONI Player")
+        self.setWindowIcon(QIcon('images/play.png'))
         self.vsource = None
 
         class MediaPlayer(QMediaPlayer):
@@ -91,9 +92,12 @@ class VideoWindow(QMainWindow):
         self.errorLabel = QLabel()
         self.errorLabel.setSizePolicy(QSizePolicy.Preferred,
                                       QSizePolicy.Maximum)
-
         self.colorLabel = QLabel('Color stream')
         self.depthLabel = QLabel('Depth stream')
+        self.hframe = QFrame(self)
+        self.hframe.setFrameShape(QFrame.HLine)
+        self.hframe.setFrameShadow(QFrame.Raised)
+        # self.hframe.setLineWidth(1)
 
         # Create new action
         openAction = QAction(QIcon('open.png'), '&Open', self)
@@ -136,6 +140,7 @@ class VideoWindow(QMainWindow):
         layout.addLayout(self.videoLayout)
         layout.addWidget(self.positionSlider)
         layout.addLayout(controlLayout)
+        layout.addWidget(self.hframe)
         layout.addWidget(self.errorLabel)
 
         # Set widget to contain window contents
@@ -179,7 +184,7 @@ class VideoWindow(QMainWindow):
             self.colorMediaPlayer.pause()
             self.depthMediaPlayer.pause()
         else:
-            # self.errorLabel.setText('')
+            self.errorLabel.setText('')
             self.colorMediaPlayer.play()
             self.depthMediaPlayer.play()
 
