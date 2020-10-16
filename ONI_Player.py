@@ -1,49 +1,74 @@
-# PyQt5 Video player
 #!/usr/bin/env python
+
+import os
+import sys
 
 from PyQt5.QtCore import QDir, Qt, QUrl
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
-        QPushButton, QSizePolicy, QSlider, QStyle, QVBoxLayout, QGridLayout, QWidget)
-from PyQt5.QtWidgets import QMainWindow,QWidget, QPushButton, QAction, QSpacerItem
+                             QPushButton, QSizePolicy, QSlider, QStyle,
+                             QVBoxLayout, QGridLayout, QAction, QProgressBar,
+                             QMainWindow, QWidget, QSpacerItem)
 from PyQt5.QtGui import QIcon
-import sys
+import ffms2
 
+from oni2avi import oni_converter
 
 class VideoWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super(VideoWindow, self).__init__(parent)
         self.setWindowTitle("ONI Player")
+        self.vsource = None
 
-        self.colorMediaPlayer = QMediaPlayer(None, QMediaPlayer.VideoSurface)
-        self.depthMediaPlayer = QMediaPlayer(None, QMediaPlayer.VideoSurface)
+        class MediaPlayer(QMediaPlayer):
+            def __init__(self, parent=None, flags=QMediaPlayer.VideoSurface):
+                super(MediaPlayer, self).__init__(parent)
+                self.parent = parent
+
+            def frame_step(self, direction):
+                frames = list(map(round, self.parent.vsource.track.timecodes))
+                if 0 < self.position() < max(frames):
+                    dif = [abs(self.position() - x) for x in frames]
+                    self.setPosition(frames[dif.index(min(dif)) + direction])
+
+
+        self.colorMediaPlayer = MediaPlayer(parent=self)
+        self.depthMediaPlayer = MediaPlayer(parent=self)
 
         colorVideoWidget = QVideoWidget()
         depthVideoWidget = QVideoWidget()
 
         # spacers for control panel
-        self.leftSpacerItem = QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        self.rightSpacerItem  = QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.leftSpacerItem = QSpacerItem(10, 10,
+                                          QSizePolicy.Expanding,
+                                          QSizePolicy.Minimum)
+        self.rightSpacerItem = QSpacerItem(10, 10,
+                                           QSizePolicy.Expanding,
+                                           QSizePolicy.Minimum)
 
+        # buttom for control panel
         self.backButton = QPushButton()
         self.backButton.setEnabled(False)
-        self.backButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSeekBackward))
-        self.backButton.clicked.connect(self.previous_frame)
+        self.backButton.setIcon(
+            self.style().standardIcon(QStyle.SP_MediaSeekBackward))
+        self.backButton.clicked.connect(lambda: self.prev_next_frame(-1))
         self.backButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
 
         self.playButton = QPushButton()
         self.playButton.setEnabled(False)
         self.playButton.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
-        self.playButton.clicked.connect(self.next_frame)
+        self.playButton.clicked.connect(self.play)
         self.playButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
 
         self.forwardButton = QPushButton()
         self.forwardButton.setEnabled(False)
-        self.forwardButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSeekForward))
-        self.forwardButton.clicked.connect(self.play)
-        self.forwardButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.forwardButton.setIcon(
+            self.style().standardIcon(QStyle.SP_MediaSeekForward))
+        self.forwardButton.clicked.connect(lambda: self.prev_next_frame(1))
+        self.forwardButton.setSizePolicy(
+            QSizePolicy.Fixed, QSizePolicy.Minimum)
 
         self.positionSlider = QSlider(Qt.Horizontal)
         self.positionSlider.setRange(0, 0)
@@ -51,7 +76,7 @@ class VideoWindow(QMainWindow):
 
         self.errorLabel = QLabel()
         self.errorLabel.setSizePolicy(QSizePolicy.Preferred,
-                QSizePolicy.Maximum)
+                                      QSizePolicy.Maximum)
 
         self.colorLabel = QLabel('Color stream')
         self.depthLabel = QLabel('Depth stream')
@@ -71,7 +96,6 @@ class VideoWindow(QMainWindow):
         # Create menu bar and add action
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu('&File')
-        #fileMenu.addAction(newAction)
         fileMenu.addAction(openAction)
         fileMenu.addAction(exitAction)
 
@@ -94,7 +118,6 @@ class VideoWindow(QMainWindow):
         videoLayout.addWidget(colorVideoWidget, 1, 0)
         videoLayout.addWidget(depthVideoWidget, 1, 1)
 
-
         layout = QVBoxLayout()
         layout.addLayout(videoLayout)
         layout.addWidget(self.positionSlider)
@@ -116,19 +139,20 @@ class VideoWindow(QMainWindow):
         self.depthMediaPlayer.durationChanged.connect(self.durationChanged)
         self.depthMediaPlayer.error.connect(self.handleError)
 
-    def one_frame_step(cur_pos, direction):
-        pass
-
     def openFile(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, "Open Movie",
-                QDir.homePath())
-
+        fileName, _ = QFileDialog.getOpenFileName(self, "Open oni file", '',
+                                                  '*.oni', QDir.homePath())
+        path_to_color_avi = os.path.join(os.getcwd(), 'color.avi')
+        path_to_depth_avi = os.path.join(os.getcwd(), 'depth.avi')
+        print(path_to_depth_avi)
         if fileName != '':
+            oni_converter(fileName)
             self.colorMediaPlayer.setMedia(
-                    QMediaContent(QUrl.fromLocalFile(fileName)))
+                QMediaContent(QUrl.fromLocalFile(path_to_color_avi)))
             self.depthMediaPlayer.setMedia(
-                    QMediaContent(QUrl.fromLocalFile(fileName)))
+                QMediaContent(QUrl.fromLocalFile(path_to_depth_avi)))
             self.playButton.setEnabled(True)
+            self.vsource = ffms2.VideoSource('color.avi')
 
     def exitCall(self):
         sys.exit(app.exec_())
@@ -141,20 +165,22 @@ class VideoWindow(QMainWindow):
             self.colorMediaPlayer.play()
             self.depthMediaPlayer.play()
 
-    def previous_frame(self):
-
+    def prev_next_frame(self, direction):
         if self.colorMediaPlayer.state() == QMediaPlayer.PausedState:
-            self.colorMediaPlayer.pause()
-            self.depthMediaPlayer.pause()
-
+            self.colorMediaPlayer.frame_step(direction)
+            self.depthMediaPlayer.frame_step(direction)
 
     def mediaStateChanged(self, state):
         if self.colorMediaPlayer.state() == QMediaPlayer.PlayingState:
             self.playButton.setIcon(
-                    self.style().standardIcon(QStyle.SP_MediaPause))
+                self.style().standardIcon(QStyle.SP_MediaPause))
+            self.backButton.setEnabled(False)
+            self.forwardButton.setEnabled(False)
         else:
             self.playButton.setIcon(
-                    self.style().standardIcon(QStyle.SP_MediaPlay))
+                self.style().standardIcon(QStyle.SP_MediaPlay))
+            self.backButton.setEnabled(True)
+            self.forwardButton.setEnabled(True)
 
     def positionChanged(self, position):
         self.positionSlider.setValue(position)
@@ -168,11 +194,21 @@ class VideoWindow(QMainWindow):
 
     def handleError(self):
         self.playButton.setEnabled(False)
-        self.errorLabel.setText("Error: " + self.colorMediaPlayer.errorString())
+        self.errorLabel.setText("Error: "
+                                + self.colorMediaPlayer.errorString())
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     player = VideoWindow()
     player.resize(960, 540)
     player.show()
+    if os.path.isfile('color.avi'):
+        os.remove('color.avi')
+        print('color.avi file has been removed.')
+    if os.path.isfile('depth.avi'):
+        os.remove('depth.avi')
+        print('depth.avi file has been removed.')
     sys.exit(app.exec_())
+
+
