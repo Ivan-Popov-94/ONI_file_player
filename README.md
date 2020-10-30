@@ -1,5 +1,6 @@
 # ONI_file_player
-Simple player for ONI  files. GUI made by PyQT5 library.
+Simple player for ONI  files.  
+GUI made by PyQT5 library.  
 For oni file processing openni2 python wrapper library was used.
 
 Tasks:  
